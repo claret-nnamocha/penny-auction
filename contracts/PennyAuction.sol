@@ -14,14 +14,15 @@ contract PennyAuction {
 
     mapping(uint256 => uint256) public startingBids;
 
+    mapping(uint256 => uint256) public increasingBidSize;
+
     address public owner;
 
     uint256 public productCount = 0;
 
-    function addProduct(
-        string memory _description,
-        uint256 _startingBid
-    ) public {
+    function addProduct(string memory _description, uint256 _startingBid)
+        public
+    {
         require(
             msg.sender == owner,
             "Only the auction owner can add a product."
@@ -31,7 +32,7 @@ contract PennyAuction {
         startingBids[productCount] = _startingBid;
     }
 
-    function startAuction(uint256 productId, uint256 biddingDeadline) public {
+    function startAuction(uint256 productId) public {
         require(
             msg.sender == owner,
             "Only the auction owner can start an auction."
@@ -40,27 +41,30 @@ contract PennyAuction {
             biddingDeadlines[productId] == 0,
             "An auction for this product is already in progress."
         );
-
+        uint256 biddingDeadline = block.timestamp + 60;
         biddingDeadlines[productId] = biddingDeadline;
+
         highestBids[productId] = startingBids[productId];
     }
 
-    function bid(uint256 productId, uint256 _bid) public payable {
+    function bid(uint256 productId) public payable {
         require(msg.sender != owner, "The auction owner cannot place a bid.");
+
+        uint256 _bid = highestBids[productId] + increasingBidSize[productId];
 
         require(
             _bid > highestBids[productId],
             "The bid must be higher than the current highest bid."
         );
+
+        require(msg.value == _bid, "The bidding amount is incorrect");
+
         require(
             block.timestamp <= biddingDeadlines[productId],
             "The bidding deadline has passed."
         );
 
-        require(
-            _bid >= highestBids[productId] + 1,
-            "The bid must be at least 1 wei higher than the current highest bid."
-        );
+        biddingDeadlines[productId] = biddingDeadlines[productId] + 20;
 
         highestBids[productId] = _bid;
         highestBidders[productId] = msg.sender;
