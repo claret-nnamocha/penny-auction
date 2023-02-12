@@ -1,99 +1,90 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
+import "./AuctionItem.sol";
+
 contract PennyAuction {
-    event NewHighestBid(address bidder, uint256 bid, uint256 productId);
+    event NewHighestBid(address bidder, uint256 bid, uint256 itemId);
+    event AuctionStarted(uint256 startingBid, uint256 itemId);
+    event AuctionEnded(address winner, uint256 highestBid, uint256 itemId);
+
+    AuctionItem public auctionItem;
+    mapping(uint256 => AuctionItem) public auctionItems;
 
     mapping(uint256 => uint256) public highestBids;
-
     mapping(uint256 => address) public highestBidders;
-
     mapping(uint256 => uint256) public biddingDeadlines;
-
-    mapping(uint256 => string) public productDescriptions;
-
     mapping(uint256 => uint256) public startingBids;
-
-    mapping(uint256 => uint256) public increasingBidSize;
+    mapping(uint256 => uint256) public increasingBidSizes;
 
     address public owner;
-
     uint256 public productCount = 0;
 
-    function addProduct(string memory _description, uint256 _startingBid)
-        public
-    {
+    function addProduct(AuctionItem _auctionItem, uint256 _startingBid) public {
         require(
             msg.sender == owner,
             "Only the auction owner can add a product."
         );
 
-        productDescriptions[++productCount] = _description;
+        auctionItems[++productCount] = _auctionItem;
         startingBids[productCount] = _startingBid;
     }
 
-    function startAuction(uint256 productId) public {
+    function startAuction(uint256 itemId) public {
         require(
             msg.sender == owner,
             "Only the auction owner can start an auction."
         );
         require(
-            biddingDeadlines[productId] == 0,
+            biddingDeadlines[itemId] == 0,
             "An auction for this product is already in progress."
         );
         uint256 biddingDeadline = block.timestamp + 60;
-        biddingDeadlines[productId] = biddingDeadline;
+        biddingDeadlines[itemId] = biddingDeadline;
 
-        highestBids[productId] = startingBids[productId];
+        highestBids[itemId] = startingBids[itemId];
+
+        emit AuctionStarted(startingBids[itemId], itemId);
     }
 
-    function bid(uint256 productId) public payable {
+    function bid(uint256 itemId) public payable {
         require(msg.sender != owner, "The auction owner cannot place a bid.");
 
-        uint256 _bid = highestBids[productId] + increasingBidSize[productId];
-
         require(
-            _bid > highestBids[productId],
-            "The bid must be higher than the current highest bid."
+            msg.value == increasingBidSizes[itemId],
+            "The bidding amount is incorrect"
         );
 
-        require(msg.value == _bid, "The bidding amount is incorrect");
-
         require(
-            block.timestamp <= biddingDeadlines[productId],
+            block.timestamp <= biddingDeadlines[itemId],
             "The bidding deadline has passed."
         );
 
-        biddingDeadlines[productId] = biddingDeadlines[productId] + 20;
+        uint256 _bid = highestBids[itemId] + increasingBidSizes[itemId];
 
-        highestBids[productId] = _bid;
-        highestBidders[productId] = msg.sender;
+        biddingDeadlines[itemId] = biddingDeadlines[itemId] + 20;
 
-        emit NewHighestBid(msg.sender, _bid, productId);
+        highestBids[itemId] = _bid;
+        highestBidders[itemId] = msg.sender;
+
+        emit NewHighestBid(msg.sender, _bid, itemId);
     }
 
-    function endAuction(uint256 productId) public {
+    function endAuction(uint256 itemId) public {
         require(
             msg.sender == owner,
             "Only the auction owner can end the auction."
         );
         require(
-            block.timestamp > biddingDeadlines[productId],
+            block.timestamp > biddingDeadlines[itemId],
             "The bidding deadline has not passed."
         );
 
-        uint256 productAmount = highestBids[productId];
+        auctionItems[itemId].transferOwnership(highestBidders[itemId]);
 
-        payable(highestBidders[productId]).transfer(productAmount);
-        biddingDeadlines[productId] = 0;
-        highestBidders[productId] = address(0);
-    }
+        emit AuctionEnded(highestBidders[itemId], highestBids[itemId], itemId);
 
-    function transferOwnership(address newOwner) public {
-        require(
-            msg.sender == owner,
-            "Only the current owner can transfer ownership."
-        );
-        owner = newOwner;
+        biddingDeadlines[itemId] = 0;
+        highestBidders[itemId] = address(0);
     }
 }
