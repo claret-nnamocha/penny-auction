@@ -8,19 +8,21 @@ contract PennyAuction {
     event AuctionStarted(uint256 itemId);
     event AuctionEnded(address winner, uint256 highestBid, uint256 itemId);
 
-    AuctionItem public auctionItem;
     mapping(uint256 => AuctionItem) public auctionItems;
-
     mapping(uint256 => uint256) public currentPrices;
     mapping(uint256 => uint256) public highestBidCounts;
     mapping(uint256 => mapping(address => uint256)) public bids;
     mapping(uint256 => address) public highestBidders;
-    mapping(uint256 => bool) public activeBids;
+    mapping(uint256 => bool) public activeBids; 
     mapping(uint256 => uint256) public biddingDeadlines;
     mapping(uint256 => uint256) public biddingFees;
 
     address public owner;
     uint256 public productCount = 0;
+
+    constructor() {
+        owner = msg.sender;
+    }
 
     function addProduct(AuctionItem _auctionItem) public {
         require(
@@ -116,6 +118,5 @@ contract PennyAuction {
         );
 
         auctionItems[itemId].transferOwnership(highestBidders[itemId]);
-        highestBidders[itemId] = address(0);
     }
 }
